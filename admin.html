@@ -499,9 +499,20 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
       return typeof p === "string" && p ? unpackB64(p).then(function (t) { return JSON.parse(t); }) : null;
     });
   }
+  // Leo 15/11: same start date and DEMO choice as the signal page (settings trang_tu_ngay / trang_demo); empty = 04/11.
+  function pnlFrom() {
+    var v = items.trang_tu_ngay && String(items.trang_tu_ngay.v || "").trim(), m = v && v.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{4}))?$/);
+    if (!m) return REAL_FROM;
+    var y = m[3] ? +m[3] : new Date(Date.now() + 7 * 3600e3).getUTCFullYear();
+    return Date.UTC(y, +m[2] - 1, +m[1]) - 7 * 3600e3;
+  }
+  function pnlWithDemo() { return !!(items.trang_demo && items.trang_demo.v); }
+  function pnlLabel() { var d = new Date(pnlFrom() + 7 * 3600e3); return ("0" + d.getUTCDate()).slice(-2) + "/" + ("0" + (d.getUTCMonth() + 1)).slice(-2); }
   function loadPnl() {
-    var st = acc && acc.status, k = cur + "|" + (st && st.backupAt || 0), id = cur;
-    if (!cur || k === pnlKey) return; pnlKey = k;
+    var st = acc && acc.status, opt = pnlFrom() + "|" + pnlWithDemo(), k = cur + "|" + (st && st.backupAt || 0) + "|" + opt, id = cur;
+    if (!cur || k === pnlKey) return;
+    if (pnlKey && pnlKey.split("|").slice(0, 2).join("|") === k.split("|").slice(0, 2).join("|") && pnlMirror && pnlPaper) { pnlKey = k; setPnl(pnlMirror, pnlPaper); drawPnl(); return; }
+    pnlKey = k;
     api("GET", "backup/" + cur + "/info/live-mirror_json/h").then(function (h) {
       if (id !== cur) return;
       var same = h && h === pnlHash && pnlMirror;
@@ -518,13 +529,13 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
     });
   }
   function setPnl(recs, trades) {
-    var last = {};
+    var last = {}, from = pnlFrom(), withDemo = pnlWithDemo();
     (Array.isArray(recs) ? recs : []).forEach(function (r) { if (r && r.TradeId) last[r.TradeId] = r; });
     var out = [];
     (Array.isArray(trades) ? trades : []).forEach(function (t) {
       var r = t && last[t.Id];
-      if (!r || r.Testnet || !(r.EntryPrice > 0 && (r.Status === "OPEN" || r.Status === "CLOSED"))) return;
-      if (utcMs(t.AlertUtc) < REAL_FROM) return;
+      if (!r || (r.Testnet && !withDemo) || !(r.EntryPrice > 0 && (r.Status === "OPEN" || r.Status === "CLOSED"))) return;
+      if (utcMs(t.AlertUtc) < from) return;
       if (["TP", "SL", "CLOSED", "MANUAL", "AMBIGUOUS"].indexOf(t.Status) < 0) return;
       var entry = r.EntryPrice > 0 ? r.EntryPrice : t.RealEntryPrice > 0 ? t.RealEntryPrice : t.Entry;
       var exit = t.RealExitPrice > 0 ? t.RealExitPrice : r.ExitPrice > 0 ? r.ExitPrice : t.ExitObservedPrice > 0 ? t.ExitObservedPrice : t.Status === "TP" ? t.Tp : t.Status === "SL" ? t.Sl : 0;
@@ -560,8 +571,8 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
     var body = $("pnlBody"); if (!body) return;
     var L = pnlList;
     if (!L) { $("pnlN").textContent = ""; body.innerHTML = "<div class='note'>Chưa có bản sao lưu dữ liệu lệnh của tài khoản này (bot v1.9.76 trở lên mới gửi).</div>"; return; }
-    $("pnlN").textContent = (pnlDemo ? "demo (VST) · " : "từ 04/11 · ") + L.length + " lệnh";
-    if (!L.length) { body.innerHTML = "<div class='note'>Chưa có lệnh thật nào đóng từ 04/11.</div>"; return; }
+    $("pnlN").textContent = (pnlDemo ? "demo (VST) · " : "từ " + pnlLabel() + " · ") + L.length + " lệnh";
+    if (!L.length) { body.innerHTML = "<div class='note'>Chưa có lệnh nào đóng từ " + pnlLabel() + ".</div>"; return; }
     var total = 0, win = 0, estN = 0, today = vnDay(Date.now()), todayV = 0, days = {}, pts = [{t: 0, c: 0}];
     L.forEach(function (x, i) {
       total += x.v; if (x.win) win++; if (x.est) estN++;
