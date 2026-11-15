@@ -169,6 +169,19 @@ header .tick{margin-left:auto}
 .pager{display:flex;justify-content:center;align-items:center;gap:10px;margin:12px 0 4px;font-size:13px;color:var(--muted)}
 .pager button{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px}
 .pager button:disabled{opacity:.35;cursor:default}
+/* Leo 15/11: "Suýt ra" = setups the bot saw but did not trade */
+.nm{margin:0 0 16px}
+.nmh{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+.nmh .ic{color:#ff7a59}.nmh b{color:var(--wait)}.nmh .n{color:var(--muted);font-weight:700}.nmh .ar{color:var(--muted);transition:transform .15s;display:inline-block}
+.nm.closed .nmh .ar{transform:rotate(180deg)}
+.nmsub{color:var(--muted);font-size:12px;margin:8px 2px}
+.nml{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-height:262px;overflow-y:auto}
+.nm.closed .nmsub,.nm.closed .nml{display:none}
+.nmr{display:grid;grid-template-columns:56px 1fr;gap:4px 12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.nmr:last-child{border-bottom:0}
+.nmr .t{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;line-height:1.25}.nmr .t small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.nmr .bd{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.nmr .tg{background:rgba(240,180,76,.15);color:var(--wait)}
+.nmr .why{grid-column:2;color:var(--muted);font-family:"JetBrains Mono",monospace;font-size:11px;overflow-wrap:anywhere}
 .list{display:grid;gap:10px}
 .trade{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:start}
 .trade .top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -281,6 +294,11 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
 
   <section class="stats" id="stats"></section>
   <section class="pairs" id="pairs"></section>
+  <section class="nm" id="nm" hidden>
+    <button class="nmh" id="nmh" type="button"><span class="ic">◆</span><b>Suýt ra</b><span class="n" id="nmN"></span><span class="ar">^</span></button>
+    <div class="nmsub">Có setup nhưng bot không vào lệnh, kèm lý do. Không phải tín hiệu.</div>
+    <div class="nml" id="nml"></div>
+  </section>
 
   <div class="tabs">
     <button class="tab on" data-tab="open">Đang chạy & lệnh chờ</button>
@@ -370,6 +388,22 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
     Object.keys(state.symbols || {}).forEach(function (k) { fix(state.symbols[k], dPair[k] || 0); });
   }
 
+  // Leo 15/11: "Suýt ra" from <node>/suytra (the bot writes it only when a row is added).
+  var nmClosed = ls("cw_nm_closed") === "1";
+  function drawNearMiss() {
+    var box = document.getElementById("nm"), list = (state && state.suytra && state.suytra.items) || [];
+    if (!list.length) { box.hidden = true; return; }
+    box.hidden = false; box.classList.toggle("closed", nmClosed);
+    document.getElementById("nmN").textContent = list.length;
+    document.getElementById("nml").innerHTML = list.map(function (r) {
+      var d = new Date((r.at || 0) + 7 * 3600e3).toISOString(), buy = r.side === "MUA";
+      return '<div class="nmr"><div class="t">' + d.slice(11, 16) + "<small>" + d.slice(8, 10) + "/" + d.slice(5, 7) + "</small></div>"
+        + '<div class="bd"><span class="badge ' + (buy ? "b-buy" : "b-sell") + '">' + (buy ? "▲ MUA" : "▼ BÁN") + "</span>"
+        + '<span class="badge tg">' + esc(r.tag) + "</span>" + (r.tf ? '<span class="when">' + esc(r.tf) + "</span>" : "") + "</div>"
+        + '<div class="why">' + esc(r.note) + "</div></div>";
+    }).join("");
+  }
+  document.getElementById("nmh").onclick = function () { nmClosed = !nmClosed; ls("cw_nm_closed", nmClosed ? "1" : "0"); drawNearMiss(); };
   function render() {
     if (!state) return;
     fixLoss();
@@ -385,6 +419,7 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       + stat("Hết hạn chờ", s.expired || 0, "exp");
     if (state.showUsd && s.netUsd != null) html += stat("Lãi ròng", (s.netUsd >= 0 ? "+" : "") + num(s.netUsd, 2) + "$", s.netUsd >= 0 ? "win" : "loss");
     document.getElementById("stats").innerHTML = html;
+    drawNearMiss();
     drawPrice();
     notify();
 
