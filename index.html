@@ -417,7 +417,7 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
     var wr = s.winRate || 0;
     var html = stat("Tỷ lệ thắng", num(wr, 1) + "%", "win", '<div class="bar"><i style="width:' + Math.min(100, wr) + '%"></i></div>')
       + stat("Lệnh thắng", s.tp || 0, "win") + stat("Lệnh thua", s.sl || 0, "loss")
-      + stat(s.since ? "Chiến dịch kiếm cơm chạy từ " + new Date(s.since + 7*3600e3).toISOString().slice(5,10).split("-").reverse().join("/") : "Tổng tín hiệu " + (s.days || 60) + " ngày", (s.signals || 0) + (s.since ? ' <small style="font-size:.5em;opacity:.7">tín hiệu</small>' : "")) + stat("Đang chạy", s.running || 0, "run") + stat("Lệnh chờ", s.pending || 0, "wait")
+      + stat(s.since ? "Chiến dịch kiếm cơm chạy từ " + (function (iso) { var hm = iso.slice(11, 16); return (hm !== "00:00" ? hm + " " : "") + iso.slice(5, 10).split("-").reverse().join("/"); })(new Date(s.since + 7*3600e3).toISOString()) : "Tổng tín hiệu " + (s.days || 60) + " ngày", (s.signals || 0) + (s.since ? ' <small style="font-size:.5em;opacity:.7">tín hiệu</small>' : "")) + stat("Đang chạy", s.running || 0, "run") + stat("Lệnh chờ", s.pending || 0, "wait")
       + stat("Hết hạn chờ", s.expired || 0, "exp");
     if (state.showUsd && s.netUsd != null) html += stat("Lãi ròng", (s.netUsd >= 0 ? "+" : "") + num(s.netUsd, 2) + "$", s.netUsd >= 0 ? "win" : "loss");
     document.getElementById("stats").innerHTML = html;
