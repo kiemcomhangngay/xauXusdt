@@ -181,6 +181,7 @@ header .tick{margin-left:auto}
 .nmr:last-child{border-bottom:0}
 .nmr .t{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;line-height:1.25}.nmr .t small{display:block;color:var(--muted);font-weight:400;font-size:11px}
 .nmr .bd{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.nmr .tg{background:rgba(240,180,76,.15);color:var(--wait)}
+.nmr .nmp{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;color:var(--text)}
 .nmr .why{grid-column:2;color:var(--muted);font-family:"JetBrains Mono",monospace;font-size:11px;overflow-wrap:anywhere}
 .list{display:grid;gap:10px}
 .trade{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:start}
@@ -401,7 +402,8 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       var d = new Date((r.at || 0) + 7 * 3600e3).toISOString(), buy = r.side === "MUA";
       return '<div class="nmr"><div class="t">' + d.slice(11, 16) + "<small>" + d.slice(8, 10) + "/" + d.slice(5, 7) + "</small></div>"
         + '<div class="bd"><span class="badge ' + (buy ? "b-buy" : "b-sell") + '">' + (buy ? "▲ MUA" : "▼ BÁN") + "</span>"
-        + '<span class="badge tg">' + esc(r.tag) + "</span>" + (r.tf ? '<span class="when">' + esc(r.tf) + "</span>" : "") + "</div>"
+        + '<span class="badge tg">' + esc(r.tag) + "</span>" + (r.tf ? '<span class="when">' + esc(r.tf) + "</span>" : "")
+        + (r.entry ? '<span class="nmp">giá ' + Number(r.entry).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + "</span>" : "") + "</div>"
         + '<div class="why">' + esc(r.note) + "</div></div>";
     }).join("");
   }
