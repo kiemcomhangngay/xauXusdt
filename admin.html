@@ -457,7 +457,7 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
         items[m.k] = {k: m.k, l: m.l, t: m.t, min: m.min, max: m.max, ch: m.ch, v: m.t === "bool" ? v === "bat" : v};
       });
       var s2 = JSON.stringify(acc.values) + JSON.stringify(Object.keys(acc.keys || {}));
-      if (!Object.keys(rows).length) render(); else if (s2 !== sig) Object.keys(rows).forEach(function (k) { if (!(k in dirty)) setInput(k); });
+      if (!Object.keys(rows).length) render(); else if (s2 !== sig) { Object.keys(rows).forEach(function (k) { if (!(k in dirty)) setInput(k); }); stratRows(); }
       sig = s2; renderKeys(); emergency();
     });
   }
@@ -659,14 +659,28 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
     var same = it.t === "number" || it.t === "int" ? v !== "" && +String(v).replace(",", ".") === +it.v : v === shown(it);
     if (same) delete dirty[k]; else dirty[k] = v;
     rows[k].row.classList.toggle("dirty", !same); bar();
+    if (k === "chien_luoc") stratRows();
   }
   function bar() { badges(); var n = Object.keys(dirty).length; $("bar").classList.toggle("show", n > 0); $("barText").textContent = n + " thay đổi chưa lưu"; }
   function setInput(k) { var it = items[k], el = rows[k].input; if (it.t === "bool") el.checked = !!it.v; else el.value = it.v; }
+  // Leo 15/11: a strategy's own options (khung_ha...) follow the strategy picked on this page right away,
+  // not the one the bot had when it last sent the list (switching to HA showed the FVG + OB timeframe instead).
+  var BY_STRAT = {khung_fvgea: "FVG_GOLD", han_lenh_cho: "FVG_GOLD", sl_atr_fvgea: "FVG_GOLD", khung_fvgob: "FVG_OB", khung_ha: "HA_M1",
+    kieu_emapb: "EMA_PB", khung_emapb: "EMA_PB", kieu_h4: "GOLD_H4", khung_opmlp: "OP_MLP"};
+  var NUM_STRAT = {"1": "FVG_GOLD", "2": "HA_M1", "3": "EMA_PB", "4": "GOLD_H4", "7": "FVG_OB", "9": "OP_MLP"}, HID = {};
+  function curStrat() {
+    var v = rows.chien_luoc ? String(rows.chien_luoc.input.value) : items.chien_luoc ? String(items.chien_luoc.v) : "", m = v.match(/^\s*(\d+)/);
+    return m ? NUM_STRAT[m[1]] || "" : "";
+  }
+  function stratRows() {
+    var st = curStrat();
+    Object.keys(BY_STRAT).forEach(function (k) { if (rows[k]) rows[k].row.style.display = (st ? BY_STRAT[k] === st : !HID[k]) ? "" : "none"; });
+  }
   // Leo 10/11: the bot says which page each setting goes on (g) and which ones are hidden (h); this file names none.
   function render() {
     var host = $("groups"); host.innerHTML = ""; $("quick").innerHTML = ""; rows = {};
     var buckets = GROUPS.map(function () { return []; });
-    META.items.forEach(function (m) { if (m.h) return; var it = items[m.k]; if (m.g >= 0 && m.g < GROUPS.length) { buckets[m.g].push(it); return; } for (var g = 0; g < GROUPS.length; g++) if (GROUPS[g][1].test(it.k)) { buckets[g].push(it); break; } });
+    META.items.forEach(function (m) { HID[m.k] = !!m.h; if (m.h && !BY_STRAT[m.k]) return; var it = items[m.k]; if (m.g >= 0 && m.g < GROUPS.length) { buckets[m.g].push(it); return; } for (var g = 0; g < GROUPS.length; g++) if (GROUPS[g][1].test(it.k)) { buckets[g].push(it); break; } });
     buckets.forEach(function (list, g) {
       var pg = g === 0 ? "home" : "g" + g;
       var card = document.createElement("div"); card.className = "card";
@@ -698,7 +712,7 @@ code{font-family:"JetBrains Mono",monospace;color:var(--gold)}
       var sec = document.createElement("section"); sec.className = "pg"; sec.setAttribute("data-p", pg); sec.hidden = page !== pg;
       sec.appendChild(card); host.appendChild(sec);
     });
-    show(page);
+    stratRows(); show(page);
   }
   function renderKeys() {
     var box = $("keys"), have = (acc && acc.keys) || {};
