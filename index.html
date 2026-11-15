@@ -392,9 +392,11 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
   var nmClosed = ls("cw_nm_closed") === "1";
   function drawNearMiss() {
     var box = document.getElementById("nm"), list = (state && state.suytra && state.suytra.items) || [];
-    if (!list.length) { box.hidden = true; return; }
     box.hidden = false; box.classList.toggle("closed", nmClosed);
     document.getElementById("nmN").textContent = list.length;
+    // Leo 15/11: shown even when empty (it looked missing before the bot had any row).
+    if (!list.length) { document.getElementById("nml").innerHTML = '<div class="nmr"><div class="why" style="grid-column:1/-1">'
+      + (state && state.suytra ? "Chưa có lần nào bot bỏ tín hiệu." : "Chưa có dữ liệu: cần bot v1.9.87 trở lên, sẽ hiện khi bot bỏ qua tín hiệu đầu tiên.") + "</div></div>"; return; }
     document.getElementById("nml").innerHTML = list.map(function (r) {
       var d = new Date((r.at || 0) + 7 * 3600e3).toISOString(), buy = r.side === "MUA";
       return '<div class="nmr"><div class="t">' + d.slice(11, 16) + "<small>" + d.slice(8, 10) + "/" + d.slice(5, 7) + "</small></div>"
