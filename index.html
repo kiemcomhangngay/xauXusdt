@@ -429,7 +429,8 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
     if (state.showUsd && s.netBot != null) html += stat("🤖 Lãi lệnh bot", (s.netBot >= 0 ? "+" : "") + num(s.netBot, 2) + "$", s.netBot >= 0 ? "win" : "loss", '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + (s.closedBot || 0) + " lệnh đã đóng</div>")
       + stat("✍️ Lãi lệnh thủ công", (s.netManual >= 0 ? "+" : "") + num(s.netManual, 2) + "$", s.netManual >= 0 ? "win" : "loss", '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + (s.closedManual || 0) + " lệnh đã đóng</div>");
     document.getElementById("stats").innerHTML = html;
-    drawNearMiss();
+    // Leo 19/11: "Suýt ra" taken off the page (too busy); the section stays hidden.
+    document.getElementById("nm").hidden = true;
     drawPrice();
     notify();
 
