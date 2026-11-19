@@ -140,6 +140,7 @@ header .tick{margin-left:auto}
 .pend .wl{font-size:12px;color:#e5d6b0}
 .hold{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-size:13px;color:#ffd58a;border-bottom:1px dashed rgba(240,180,76,.3);padding-bottom:6px}
 .hold b{color:#fff}.s-HOLD{background:rgba(148,163,184,.18);color:#cbd5e1}
+.s-MAN{background:rgba(167,139,250,.18);color:#c4b5fd}.s-BOT{background:rgba(56,189,248,.14);color:#7dd3fc}
 .pend .pb{flex:1 1 100%;height:5px;border-radius:9px;background:#1a2638;overflow:hidden}.pend .pb>i{display:block;height:100%;background:linear-gradient(90deg,var(--wait),var(--loss))}
 @keyframes blink{50%{opacity:.45}}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
@@ -373,7 +374,7 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
   // that closed last before 07:53 12/11 (VN) shows its real BingX profit +150.18$. Pair and total net follow.
   var FIX_FROM = Date.UTC(2026, 10, 11, 9, 10), FIX_TO = Date.UTC(2026, 10, 11, 9, 20), TP_CUT = Date.UTC(2026, 10, 12, 0, 53);
   function fixLoss() {
-    var tr = state.trades || [], tpLast = null, dAll = 0, dPair = {};
+    var tr = state.trades || [], tpLast = null, dAll = 0, dPair = {}, dMan = 0;
     tr.forEach(function (x) { if (x && (x.status === "TP" || x.status === "LOI") && x.closedAt && x.closedAt <= TP_CUT && (!tpLast || x.closedAt > tpLast.closedAt)) tpLast = x; });
     tr.forEach(function (t) {
       if (!t || t.netUsd == null) return;
@@ -382,10 +383,12 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       if (t === tpLast) want = 150.18;
       if (want == null) return;
       if (!t._fx) { t._real = t.netUsd; t.netUsd = want; t._fx = 1; } // % PnL stays price-based (move / entry x leverage)
-      dAll += want - t._real; dPair[t.metal] = (dPair[t.metal] || 0) + want - t._real;
+      dAll += want - t._real; dPair[t.metal] = (dPair[t.metal] || 0) + want - t._real; if (t.manual) dMan += want - t._real;
     });
     var fix = function (o, d) { if (!o || o.netUsd == null) return; if (o._base == null) o._base = o.netUsd; o.netUsd = Math.round((o._base + d) * 100) / 100; };
     fix(state.stats, dAll);
+    var fixF = function (o, f, d) { if (!o || o[f] == null) return; if (o["_b" + f] == null) o["_b" + f] = o[f]; o[f] = Math.round((o["_b" + f] + d) * 100) / 100; };
+    fixF(state.stats, "netBot", dAll - dMan); fixF(state.stats, "netManual", dMan);
     Object.keys(state.symbols || {}).forEach(function (k) { fix(state.symbols[k], dPair[k] || 0); });
   }
 
@@ -422,6 +425,9 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       + stat(s.since ? "Chiến dịch kiếm cơm chạy từ " + (function (iso) { var hm = iso.slice(11, 16); return (hm !== "00:00" ? hm + " " : "") + iso.slice(5, 10).split("-").reverse().join("/"); })(new Date(s.since + 7*3600e3).toISOString()) : "Tổng tín hiệu " + (s.days || 60) + " ngày", (s.signals || 0) + (s.since ? ' <small style="font-size:.5em;opacity:.7">tín hiệu</small>' : "")) + stat("Đang chạy", s.running || 0, "run") + stat("Lệnh chờ", s.pending || 0, "wait")
       + stat("Hết hạn chờ", s.expired || 0, "exp");
     if (state.showUsd && s.netUsd != null) html += stat("Lãi ròng", (s.netUsd >= 0 ? "+" : "") + num(s.netUsd, 2) + "$", s.netUsd >= 0 ? "win" : "loss");
+    // Leo 19/11: the same net split into bot orders and manual orders.
+    if (state.showUsd && s.netBot != null) html += stat("🤖 Lãi lệnh bot", (s.netBot >= 0 ? "+" : "") + num(s.netBot, 2) + "$", s.netBot >= 0 ? "win" : "loss", '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + (s.closedBot || 0) + " lệnh đã đóng</div>")
+      + stat("✍️ Lãi lệnh thủ công", (s.netManual >= 0 ? "+" : "") + num(s.netManual, 2) + "$", s.netManual >= 0 ? "win" : "loss", '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + (s.closedManual || 0) + " lệnh đã đóng</div>");
     document.getElementById("stats").innerHTML = html;
     drawNearMiss();
     drawPrice();
@@ -463,7 +469,7 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       return '<div class="card trade"><div><div class="top"><span class="name ' + cls(t.metal) + '">' + esc(t.name) + "</span>"
         + '<span class="badge ' + (buy ? "b-buy" : "b-sell") + '">' + (buy ? "▲ MUA" : "▼ BÁN") + "</span>"
         + '<span class="badge s-' + esc(t.status) + '">' + (STATUS[t.status] || esc(t.status)) + "</span>"
-        + (t.status === "CHO" && t.hold ? '<span class="badge s-HOLD">⏸ TẠM HỦY</span>' : "")
+        + (t.status === "CHO" && t.hold ? '<span class="badge s-HOLD">⏸ TẠM HỦY</span>' : "") + srcTag(t)
         + "</div>"
         + '<div class="when">' + when + "</div></div>" + res
         + '<div class="levels"><div class="lv"><small>Giá vào</small><b>' + num(t.entry) + '</b></div><div class="lv"><small>Chốt lời</small><b style="color:var(--win)">' + num(t.tp)
@@ -485,6 +491,8 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
     var dm = key.slice(8, 10) + "/" + key.slice(5, 7);
     return (key === today ? "Hôm nay" : key === y ? "Hôm qua" : WD[d.getUTCDay()]) + " · " + dm;
   }
+  // Leo 19/11: manual order / bot order tag (only once the bot sends it: bot v1.9.95+).
+  function srcTag(t) { if (!state.stats || state.stats.netBot == null) return ""; return t.manual ? '<span class="badge s-MAN">✍️ THỦ CÔNG</span>' : '<span class="badge s-BOT">🤖 BOT</span>'; }
   function sign(v, d) { return (v >= 0 ? "+" : "") + num(v, d); }
   function histRow(t) {
     var buy = t.side === "MUA", miss = t.status === "HH" || t.status === "HUY";
@@ -501,7 +509,7 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       : num(t.entry) + " <i>→</i> " + (t.exit != null ? num(t.exit) : "–");
     return '<div class="row' + (miss ? " dim" : "") + '"><div class="tm">' + t1 + (t2 && t2 !== t1 ? "<small>" + t2 + "</small>" : "") + "</div>"
       + '<div class="mid"><div class="top"><span class="badge ' + (buy ? "b-buy" : "b-sell") + '">' + (buy ? "▲ MUA" : "▼ BÁN") + "</span>"
-      + '<span class="badge s-' + esc(t.status) + '">' + (STATUS[t.status] || esc(t.status)) + "</span>"
+      + '<span class="badge s-' + esc(t.status) + '">' + (STATUS[t.status] || esc(t.status)) + "</span>" + srcTag(t)
       + (filter === "ALL" && t.metal !== "GOLD" ? '<span class="name ' + cls(t.metal) + '" style="font-size:12px">' + esc(t.name) + "</span>" : "") + "</div>"
       + '<div class="px2">' + px + "</div>"
       + '<div class="lvl">TP <span style="color:var(--win)">' + num(t.tp) + '</span> · SL <span style="color:var(--loss)">' + num(t.sl) + "</span></div></div>"
@@ -530,16 +538,17 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
       if (hf.res === "loss") return !isMiss(t) && t.move != null && t.move < 0;
       return true;
     });
-    var win = 0, loss = 0, miss = 0, mv = 0, usd = 0, hasUsd = false;
+    var win = 0, loss = 0, miss = 0, mv = 0, usd = 0, hasUsd = false, usdMan = 0;
     out.forEach(function (t) {
       if (isMiss(t)) { miss++; return; }
       if (t.move != null) { mv += t.move; if (t.move > 0) win++; else if (t.move < 0) loss++; }
-      if (t.netUsd != null) { usd += t.netUsd; hasUsd = true; }
+      if (t.netUsd != null) { usd += t.netUsd; hasUsd = true; if (t.manual) usdMan += t.netUsd; }
     });
+    var split = srcTag({}) ? " (🤖 bot " + sign(usd - usdMan, 2) + "$ · ✍️ thủ công " + sign(usdMan, 2) + "$)" : "";
     var closed = win + loss;
     document.getElementById("histsum").innerHTML = out.length
       ? out.length + " lệnh · <b class=\"w\">" + win + " thắng</b> · <b class=\"l\">" + loss + " thua</b>" + (miss ? " · " + miss + " không khớp" : "")
-        + (closed ? " · thắng " + Math.round(win * 100 / closed) + "%" + (state.showUsd && hasUsd ? " · lợi nhuận " + sign(usd, 2) + "$" : "") : "")
+        + (closed ? " · thắng " + Math.round(win * 100 / closed) + "%" + (state.showUsd && hasUsd ? " · lợi nhuận " + sign(usd, 2) + "$" + split : "") : "")
       : "Không có lệnh nào khớp bộ lọc.";
     return out;
   }
