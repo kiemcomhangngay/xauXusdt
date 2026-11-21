@@ -411,8 +411,36 @@ footer{color:#5b6f8a;font-size:12px;margin-top:26px;text-align:center}
     }).join("");
   }
   document.getElementById("nmh").onclick = function () { nmClosed = !nmClosed; ls("cw_nm_closed", nmClosed ? "1" : "0"); drawNearMiss(); };
+  // Leo 21/11 (private page): the manual SELL gold 3,549.41 opened 15:39 21/11 (VN) is taken off the page and out of every total.
+  var HIDE = [{metal: "GOLD", side: "BÁN", manual: true, from: Date.UTC(2026, 10, 21, 8, 35), to: Date.UTC(2026, 10, 21, 8, 45), entry: 3549.41}];
+  function hidden(t) { return HIDE.some(function (h) { var at = t.fillAt || t.signalAt || 0;
+    return t.metal === h.metal && t.side === h.side && !!t.manual === h.manual && at >= h.from && at < h.to && Math.abs((t.entry || 0) - h.entry) < 0.5; }); }
+  function hideTrades() {
+    var tr = state.trades || [], gone = tr.filter(function (t) { return t && hidden(t); });
+    if (!gone.length) return;
+    state.trades = tr.filter(function (t) { return !(t && hidden(t)); });
+    var st = state.stats || {};
+    if (st._hid) return; // totals already taken down for this copy of the stats
+    st._hid = 1;
+    gone.forEach(function (t) {
+      var win = t.status === "TP" || t.status === "LOI", loss = t.status === "SL" || t.status === "LO", n = t.netUsd || 0;
+      var take = function (o, manualPart) {
+        if (!o) return;
+        if (win) o.tp = Math.max(0, (o.tp || 0) - 1);
+        if (loss) o.sl = Math.max(0, (o.sl || 0) - 1);
+        if (win || loss) { o.closed = Math.max(0, (o.closed || 0) - 1); o.winRate = (o.tp || 0) + (o.sl || 0) ? Math.round(1000 * (o.tp || 0) / ((o.tp || 0) + (o.sl || 0))) / 10 : 0;
+          if (o.netUsd != null) o.netUsd = Math.round((o.netUsd - n) * 100) / 100;
+          if (o.last) { var i = o.last.indexOf(win ? "TP" : "SL"); if (i >= 0) o.last.splice(i, 1); } }
+        if (manualPart && (win || loss)) { if (o.netManual != null) o.netManual = Math.round((o.netManual - n) * 100) / 100; if (o.closedManual) o.closedManual--; }
+      };
+      take(st, true);
+      if (st.signals) st.signals--;
+      take((state.symbols || {})[t.metal], false);
+    });
+  }
   function render() {
     if (!state) return;
+    hideTrades();
     fixLoss();
     var s = state.stats || {};
     if (state.title) { document.getElementById("title").textContent = state.title; baseTitle = state.title; }
